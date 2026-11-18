@@ -1,0 +1,22 @@
+# Render Blueprint: describes the web service so Render can set it up from the repo.
+# Render dashboard -> New -> Blueprint -> pick this repo.
+services:
+  - type: web
+    name: agentic-pokedex
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m agentic_pokedex.app
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.16"  # matches the local version (uv run python --version)
+      - key: OPENAI_MODEL
+        value: gpt-5.4-mini
+      # Secrets: "sync: false" means Render asks you to type the value in the dashboard.
+      # They are never stored in this file or in git.
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: APP_USERNAME
+        sync: false
+      - key: APP_PASSWORD
+        sync: false

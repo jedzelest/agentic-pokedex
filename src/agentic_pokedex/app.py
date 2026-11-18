@@ -4,6 +4,7 @@ Run with:  uv run pokedex-web     (then open http://127.0.0.1:7860)
 """
 
 import json
+import os
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -126,8 +127,24 @@ def build_demo() -> gr.Blocks:
 
 
 def main() -> None:
+    # Hosting platforms like Render set PORT and need the server reachable from outside
+    # (0.0.0.0). Locally PORT isn't set, so we stay on 127.0.0.1 (this computer only).
+    on_server = "PORT" in os.environ
+    server_name = "0.0.0.0" if on_server else "127.0.0.1"
+    server_port = int(os.environ.get("PORT", 7860))
+
+    # Optional login, so strangers can't spend your OpenAI credits on a public URL.
+    # Turned on by setting APP_USERNAME and APP_PASSWORD (e.g. in Render's dashboard).
+    username, password = os.environ.get("APP_USERNAME"), os.environ.get("APP_PASSWORD")
+    auth = (username, password) if username and password else None
+
     # In Gradio 6, custom CSS is passed to launch() rather than to gr.Blocks().
-    build_demo().launch(css_paths=[CSS_PATH])
+    build_demo().launch(
+        server_name=server_name,
+        server_port=server_port,
+        auth=auth,
+        css_paths=[CSS_PATH],
+    )
 
 
 if __name__ == "__main__":
