@@ -24,6 +24,8 @@ class PokemonSpeciesTool(ResourceTool):
             "is_mythical": data["is_mythical"],
             "is_baby": data["is_baby"],
             "evolves_from": evolves_from["name"] if evolves_from else None,
+            # Pass this ID to pokeapi_lookup(resource="evolution-chain") for the full line.
+            "evolution_chain_id": int(data["evolution_chain"]["url"].rstrip("/").split("/")[-1]),
             "habitat": habitat["name"] if habitat else None,
             "color": data["color"]["name"],
             "egg_groups": names(data["egg_groups"]),

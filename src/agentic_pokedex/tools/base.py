@@ -9,6 +9,8 @@ Hierarchy:
 from abc import ABC, abstractmethod
 from typing import Any
 
+from openai.types.chat import ChatCompletionFunctionToolParam
+
 from agentic_pokedex.pokeapi import PokeAPIClient
 
 
@@ -25,7 +27,7 @@ class BaseTool(ABC):
     def run(self, **kwargs: Any) -> dict:
         """Do the work and return JSON-serializable data for the LLM."""
 
-    def to_openai_schema(self) -> dict:
+    def to_openai_schema(self) -> ChatCompletionFunctionToolParam:
         """The tool definition in the format OpenAI's Chat Completions API expects."""
         return {
             "type": "function",

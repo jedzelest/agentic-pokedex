@@ -2,6 +2,8 @@
 
 import json
 
+from openai.types.chat import ChatCompletionToolUnionParam
+
 from agentic_pokedex.pokeapi import PokeAPIClient, PokeAPINotFound
 from agentic_pokedex.tools.ability import AbilityTool
 from agentic_pokedex.tools.base import BaseTool
@@ -23,7 +25,7 @@ class ToolRegistry:
             PokeAPILookupTool(client),
         ])
 
-    def openai_schemas(self) -> list[dict]:
+    def openai_schemas(self) -> list[ChatCompletionToolUnionParam]:
         """All tool definitions, ready for the `tools=` argument of the OpenAI API."""
         return [tool.to_openai_schema() for tool in self._tools.values()]
 
