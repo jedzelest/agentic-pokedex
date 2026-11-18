@@ -20,10 +20,16 @@ if not model:
 client = OpenAI()
 
 # 3. Send one question and print the answer.
-response = client.responses.create(
+messages = [
+    {
+        "role": "user",
+        "content": "In one sentence: what type is Torchic, and what does it evolve into?",
+    }
+]
+response = client.chat.completions.create(
     model=model,
-    input="In one sentence: what type is Pikachu, and what does it evolve into?",
+    messages=messages,
 )
 
 print(f"Model: {model}")
-print(f"Answer: {response.output_text}")
+print(f"Answer: {response.choices[0].message.content}")
