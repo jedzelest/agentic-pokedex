@@ -1,0 +1,151 @@
+/* =============================================================================
+   Agentic Pokédex - Poké Ball theme
+   Loaded by Gradio via launch(css_paths=...).
+
+   1. Palette tokens   - our colors, defined once (light + dark mode)
+   2. Gradio mapping   - point Gradio's theme variables at our tokens
+   3. Hooks            - classes/ids we attach to components (elem_id / elem_classes)
+   ============================================================================= */
+
+
+/* ---- 1. Palette tokens ------------------------------------------------------ */
+
+:root {
+  /* Poké Ball */
+  --pdx-red:        #EE1515;  /* top half */
+  --pdx-red-dark:   #C20E0E;  /* hover / pressed */
+  --pdx-red-soft:   #FDECEC;  /* light tint: user bubbles, highlights */
+  --pdx-white:      #FFFFFF;  /* bottom half */
+  --pdx-black:      #222224;  /* center band and button ring */
+
+  /* Surfaces and text */
+  --pdx-bg:         #F5F5F7;  /* page background */
+  --pdx-surface:    #FFFFFF;  /* cards, inputs, chat area */
+  --pdx-border:     #DCDCE0;
+  --pdx-text:       #1F1F23;
+  --pdx-text-muted: #5C5C66;
+
+  --pdx-radius:     12px;
+}
+
+/* Gradio adds the .dark class when the browser is in dark mode. */
+.dark {
+  --pdx-red:        #FF4B4B;  /* brighter red reads better on dark backgrounds */
+  --pdx-red-dark:   #E03636;
+  --pdx-red-soft:   #3A1C1F;
+  --pdx-white:      #FFFFFF;
+  --pdx-black:      #0E0E10;
+
+  --pdx-bg:         #16161A;
+  --pdx-surface:    #222228;
+  --pdx-border:     #3A3A42;
+  --pdx-text:       #F2F2F4;
+  --pdx-text-muted: #A6A6B0;
+}
+
+
+/* ---- 2. Gradio mapping ---------------------------------------------------------
+   `body.dark` is listed so these win over Gradio's own dark-mode values.        */
+
+body,
+body.dark,
+.gradio-container {
+  /* Page */
+  --body-background-fill:          var(--pdx-bg);
+  --body-text-color:               var(--pdx-text);
+  --body-text-color-subdued:       var(--pdx-text-muted);
+  --background-fill-primary:       var(--pdx-surface);
+  --background-fill-secondary:     var(--pdx-bg);
+
+  /* Accent: Gradio uses this for focus rings, loaders, highlights */
+  --color-accent:                  var(--pdx-red);
+  --color-accent-soft:             var(--pdx-red-soft);
+  --border-color-accent:           var(--pdx-red);
+  --border-color-accent-subdued:   var(--pdx-red-soft);
+  --border-color-primary:          var(--pdx-border);
+  --loader-color:                  var(--pdx-red);
+
+  /* Primary buttons (Submit): red with white text */
+  --button-primary-background-fill:       var(--pdx-red);
+  --button-primary-background-fill-hover: var(--pdx-red-dark);
+  --button-primary-border-color:          var(--pdx-red);
+  --button-primary-border-color-hover:    var(--pdx-red-dark);
+  --button-primary-text-color:            var(--pdx-white);
+  --button-primary-text-color-hover:      var(--pdx-white);
+
+  /* Blocks and panels (the chat area) */
+  --block-background-fill:         var(--pdx-surface);
+  --block-border-color:            var(--pdx-border);
+  --block-radius:                  var(--pdx-radius);
+  --panel-background-fill:         var(--pdx-surface);
+  --panel-border-color:            var(--pdx-border);
+
+  /* Text inputs */
+  --input-background-fill:         var(--pdx-surface);
+  --input-border-color:            var(--pdx-border);
+  --input-border-color-focus:      var(--pdx-red);
+  --input-radius:                  var(--pdx-radius);
+
+  /* Links */
+  --link-text-color:               var(--pdx-red);
+  --link-text-color-hover:         var(--pdx-red-dark);
+  --link-text-color-active:        var(--pdx-red-dark);
+  --link-text-color-visited:       var(--pdx-red);
+}
+
+
+/* ---- 3. Hooks ------------------------------------------------------------------
+   These only take effect once we attach them to components in app.py.          */
+
+/* Header banner: red top, black band underneath, like the top of a Poké Ball. */
+#pokedex-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  background: var(--pdx-red);
+  color: var(--pdx-white);
+  border-bottom: 6px solid var(--pdx-black);
+  border-radius: var(--pdx-radius) var(--pdx-radius) 0 0;
+}
+
+#pokedex-header h1,
+#pokedex-header p {
+  margin: 0;
+  color: var(--pdx-white);
+}
+
+#pokedex-header p {
+  opacity: 0.9;
+}
+
+/* A pure-CSS Poké Ball icon: <span class="pokeball"></span> */
+.pokeball {
+  position: relative;
+  flex: none;
+  box-sizing: border-box;
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--pdx-black);
+  border-radius: 50%;
+  background: linear-gradient(
+    to bottom,
+    var(--pdx-red)   0 44%,
+    var(--pdx-black) 44% 56%,
+    var(--pdx-white) 56% 100%
+  );
+}
+
+.pokeball::after {  /* the center button */
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  box-sizing: border-box;
+  width: 12px;
+  height: 12px;
+  transform: translate(-50%, -50%);
+  background: var(--pdx-white);
+  border: 3px solid var(--pdx-black);
+  border-radius: 50%;
+}

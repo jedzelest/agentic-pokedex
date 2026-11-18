@@ -1,11 +1,26 @@
 """The agent loop: the LLM decides which tools to call, we run them, repeat until it answers."""
 
 import json
+from collections.abc import Iterator
+from dataclasses import dataclass
 
 from openai import OpenAI
 from openai.types.chat import ChatCompletionMessageParam
 
 from agentic_pokedex.tools import ToolRegistry
+
+
+@dataclass
+class ToolStep:
+    """Reported each time the agent runs a tool (so a UI can show it)."""
+    name: str
+    arguments: str  # JSON string, as the model sent it
+    result: str  # JSON string, as the tool returned it
+
+
+@dataclass
+class FinalAnswer:
+    text: str
 
 SYSTEM_PROMPT = """\
 You are an agentic Pokédex: an expert assistant for Pokémon questions, backed by PokéAPI.
@@ -34,17 +49,30 @@ MAX_ROUNDS = 8  # safety limit: max LLM round-trips for one question
 
 class PokedexAgent:
     def __init__(self, model: str, registry: ToolRegistry, client: OpenAI | None = None,
-                 verbose: bool = True):
+                 verbose: bool = True, history: list[ChatCompletionMessageParam] | None = None):
         self.model = model
         self.registry = registry
         self.client = client or OpenAI()  # reads OPENAI_API_KEY from the environment
         self.verbose = verbose  # print each tool call so you can watch the agent think
         self.messages: list[ChatCompletionMessageParam] = [
-            {"role": "system", "content": SYSTEM_PROMPT}
+            {"role": "system", "content": SYSTEM_PROMPT},
+            *(history or []),  # earlier turns, e.g. restored from the web UI
         ]
 
     def ask(self, question: str) -> str:
-        """Answer one question. The history is kept, so follow-up questions work."""
+        """Answer one question and return just the final text (used by the terminal chat)."""
+        for event in self.run(question):
+            if isinstance(event, ToolStep):
+                self._log(event.name, event.arguments)
+            else:
+                return event.text
+        return ""
+
+    def run(self, question: str) -> Iterator[ToolStep | FinalAnswer]:
+        """The agent loop. Yields a ToolStep per tool call, then one FinalAnswer.
+
+        The history is kept, so follow-up questions work.
+        """
         self.messages.append({"role": "user", "content": question})
 
         for _ in range(MAX_ROUNDS):
@@ -59,7 +87,8 @@ class PokedexAgent:
             if not message.tool_calls:
                 answer = message.content or ""
                 self.messages.append({"role": "assistant", "content": answer})
-                return answer
+                yield FinalAnswer(answer)
+                return
 
             # The model wants tools. First record its request in the history...
             self.messages.append({
@@ -83,26 +112,30 @@ class PokedexAgent:
             for call in message.tool_calls:
                 if call.type != "function":  # we only define function tools
                     continue
-                self._log(call.function.name, call.function.arguments)
                 result = self.registry.execute(call.function.name, call.function.arguments)
                 self.messages.append({
                     "role": "tool",
                     "tool_call_id": call.id,
                     "content": result,
                 })
+                # yield ToolStep(call.function.name, call.function.arguments, result)
             # Loop: the model now reads the tool results and decides what to do next.
 
-        return "Sorry, I couldn't finish looking that up. Try asking a more specific question."
+        yield FinalAnswer("Sorry, I couldn't finish looking that up. Try a more specific question.")
 
     def reset(self) -> None:
         """Forget the conversation (keeps the system prompt)."""
         del self.messages[1:]
 
     def _log(self, name: str, arguments: str) -> None:
-        if not self.verbose:
-            return
-        try:
-            args = ", ".join(f"{k}={v!r}" for k, v in json.loads(arguments).items())
-        except (json.JSONDecodeError, AttributeError):
-            args = arguments
-        print(f"  → {name}({args})")
+        if self.verbose:
+            print(f"  → {format_call(name, arguments)}")
+
+
+def format_call(name: str, arguments: str) -> str:
+    """'get_ability', '{"name": "levitate"}'  ->  "get_ability(name='levitate')" """
+    try:
+        args = ", ".join(f"{k}={v!r}" for k, v in json.loads(arguments).items())
+    except (json.JSONDecodeError, AttributeError):
+        args = arguments
+    return f"{name}({args})"

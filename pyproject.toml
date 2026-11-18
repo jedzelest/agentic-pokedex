@@ -8,6 +8,7 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
+    "gradio>=6.32.0",
     "openai>=3.52.0",
     "python-dotenv>=1.2.4",
     "requests>=2.34.2",
@@ -15,6 +16,7 @@ dependencies = [
 
 [project.scripts]
 agentic-pokedex = "agentic_pokedex:main"
+pokedex-web = "agentic_pokedex.app:main"
 
 [build-system]
 requires = ["uv_build>=0.13.8,<0.14.0"]
