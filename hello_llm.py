@@ -4,9 +4,16 @@ Run with:  uv run python hello_llm.py
 """
 
 import os
+from typing import Iterable
 
 from dotenv import load_dotenv
 from openai import OpenAI
+from openai.types.chat.chat_completion_assistant_message_param import ChatCompletionAssistantMessageParam
+from openai.types.chat.chat_completion_developer_message_param import ChatCompletionDeveloperMessageParam
+from openai.types.chat.chat_completion_function_message_param import ChatCompletionFunctionMessageParam
+from openai.types.chat.chat_completion_system_message_param import ChatCompletionSystemMessageParam
+from openai.types.chat.chat_completion_tool_message_param import ChatCompletionToolMessageParam
+from openai.types.chat.chat_completion_user_message_param import ChatCompletionUserMessageParam
 
 # 1. Read OPENAI_API_KEY and OPENAI_MODEL from the .env file into the environment.
 load_dotenv()
@@ -20,7 +27,7 @@ if not model:
 client = OpenAI()
 
 # 3. Send one question and print the answer.
-messages = [
+messages: Iterable[ChatCompletionDeveloperMessageParam | ChatCompletionSystemMessageParam | ChatCompletionUserMessageParam | ChatCompletionAssistantMessageParam | ChatCompletionToolMessageParam | ChatCompletionFunctionMessageParam] = [
     {
         "role": "user",
         "content": "In one sentence: what type is Torchic, and what does it evolve into?",
