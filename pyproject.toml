@@ -12,6 +12,7 @@ dependencies = [
     "openai>=3.52.0",
     "python-dotenv>=1.2.4",
     "requests>=2.34.2",
+    "supabase>=2.34.1",
 ]
 
 [project.scripts]

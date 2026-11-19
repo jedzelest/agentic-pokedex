@@ -20,3 +20,8 @@ services:
         sync: false
       - key: APP_PASSWORD
         sync: false
+      # Supabase trainer journal (log_event tool). Without these, logging is switched off.
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false

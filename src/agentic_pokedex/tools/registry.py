@@ -4,10 +4,12 @@ import json
 
 from openai.types.chat import ChatCompletionToolUnionParam
 
+from agentic_pokedex import db
 from agentic_pokedex.pokeapi import PokeAPIClient, PokeAPINotFound
 from agentic_pokedex.tools.ability import AbilityTool
 from agentic_pokedex.tools.base import BaseTool
 from agentic_pokedex.tools.general import PokeAPILookupTool
+from agentic_pokedex.tools.log_event import LogEventTool
 from agentic_pokedex.tools.species import PokemonSpeciesTool
 
 
@@ -19,11 +21,15 @@ class ToolRegistry:
     def default(cls, client: PokeAPIClient | None = None) -> "ToolRegistry":
         """The standard Pokédex toolbox: specialized tools first, general fallback last."""
         client = client or PokeAPIClient()
-        return cls([
+        tools: list[BaseTool] = [
             PokemonSpeciesTool(client),
             AbilityTool(client),
             PokeAPILookupTool(client),
-        ])
+        ]
+        # The journal needs Supabase. Without its settings the app still runs, minus logging.
+        if db.is_configured():
+            tools.append(LogEventTool())
+        return cls(tools)
 
     def openai_schemas(self) -> list[ChatCompletionToolUnionParam]:
         """All tool definitions, ready for the `tools=` argument of the OpenAI API."""
