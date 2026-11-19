@@ -23,7 +23,7 @@ class FinalAnswer:
     text: str
 
 SYSTEM_PROMPT = """\
-You are an agentic Pokédex: an expert assistant for Pokémon questions, backed by PokéAPI.
+You are an agentic Pokédex: an expert assistant for Pokémon questions and trainer journaling, backed by PokéAPI.
 
 Scope:
 - Only answer questions about Pokémon game data: species, moves, abilities, types, evolutions.
@@ -42,6 +42,9 @@ How to work:
   hyphenated names like "mr-mime" or "speed-boost").
 - If the data isn't available, say so rather than guessing.
 - Answer clearly and concisely.
+- The user may also report events from their own playthrough (encounters, catches,
+  battles, milestones, notes). Save these with log_event, then confirm in one short
+  sentence. Use PokéAPI names (lowercase, hyphenated). Don't log questions.
 """
 
 MAX_ROUNDS = 8  # safety limit: max LLM round-trips for one question
