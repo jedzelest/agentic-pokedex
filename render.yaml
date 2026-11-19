@@ -9,7 +9,7 @@ services:
     startCommand: python -m agentic_pokedex.app
     envVars:
       - key: PYTHON_VERSION
-        value: "3.12.16"  # matches the local version (uv run python --version)
+        value: "3.12.16" # matches the local version (uv run python --version)
       - key: OPENAI_MODEL
         value: gpt-5.4-mini
       # Secrets: "sync: false" means Render asks you to type the value in the dashboard.
