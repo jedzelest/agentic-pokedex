@@ -4,9 +4,7 @@ import json
 from collections.abc import Iterator
 from dataclasses import dataclass
 
-from openai import OpenAI
-from openai.types.chat import ChatCompletionMessageParam
-
+from agentic_pokedex.llm import LLMProvider, ToolResult
 from agentic_pokedex.tools import ToolRegistry
 
 
@@ -24,7 +22,8 @@ class FinalAnswer:
 
 SYSTEM_PROMPT = """\
 You are Rin, the trainer's personal Pokédex assistant: an AI companion who answers Pokémon
-questions with live data from PokéAPI and keeps the trainer's journal.
+questions with live data from PokéAPI, knows PokeMMO from the trainer's knowledge notes,
+and keeps the trainer's journal.
 
 Who Rin is:
 - Calm, composed and quietly confident, like a seasoned butler who happens to be a
@@ -39,7 +38,8 @@ Who Rin is:
 - Never claim to be human, and never pretend to have done something you didn't do.
 
 Scope:
-- Only help with Pokémon game data (species, moves, abilities, types, evolutions)
+- Only help with Pokémon game data (species, moves, abilities, types, evolutions),
+  with PokeMMO (the trainer's game: regions, breeding, money, EV training, shinies, events, PvP)
   and with the user's trainer journal (logging events from their playthrough).
 - For anything else (other anime, general chat, writing tasks), don't answer and don't call
   tools. Decline in one courteous sentence, in character, and suggest a Pokémon question instead.
@@ -51,6 +51,9 @@ How to work:
 - Prefer the specialized tools (get_pokemon_species, get_ability). Use pokeapi_lookup for
   everything else, e.g. resource "pokemon" for types, base stats and abilities, "move" for
   moves, "type" for type matchups, "evolution-chain" for full evolution lines.
+- For anything specific to PokeMMO, search the knowledge notes with search_notes and answer
+  from what they say. Mention the source briefly, and if a note says something is unverified
+  or approximate, pass that on. If the notes don't cover it, say so instead of guessing.
 - You may call several tools, one after another, to answer a single question.
 - If a lookup returns an error, check the spelling and try again (PokéAPI uses lowercase,
   hyphenated names like "mr-mime" or "speed-boost").
@@ -66,16 +69,18 @@ MAX_ROUNDS = 8  # safety limit: max LLM round-trips for one question
 
 
 class PokedexAgent:
-    def __init__(self, model: str, registry: ToolRegistry, client: OpenAI | None = None,
-                 verbose: bool = True, history: list[ChatCompletionMessageParam] | None = None):
-        self.model = model
+    def __init__(self, llm: LLMProvider, registry: ToolRegistry, verbose: bool = True,
+                 history: list[tuple[str, str]] | None = None):
+        """`history`: earlier (role, text) turns, e.g. restored from the web UI."""
+        self.llm = llm  # OpenAI, Anthropic, ... - the loop below doesn't care which
         self.registry = registry
-        self.client = client or OpenAI()  # reads OPENAI_API_KEY from the environment
         self.verbose = verbose  # print each tool call so you can watch the agent think
-        self.messages: list[ChatCompletionMessageParam] = [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            *(history or []),  # earlier turns, e.g. restored from the web UI
-        ]
+        self.reset()
+        for role, text in history or []:
+            if role == "user":
+                self.session.add_user(text)
+            elif role == "assistant":
+                self.session.add_assistant(text)
 
     def ask(self, question: str) -> str:
         """Answer one question and return just the final text (used by the terminal chat)."""
@@ -91,59 +96,30 @@ class PokedexAgent:
 
         The history is kept, so follow-up questions work.
         """
-        self.messages.append({"role": "user", "content": question})
+        self.session.add_user(question)
 
         for _ in range(MAX_ROUNDS):
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=self.messages,
-                tools=self.registry.openai_schemas(),
-            )
-            message = response.choices[0].message
+            turn = self.session.complete()  # the model replies (and the session records it)
 
             # No tool calls means the model has its final answer.
-            if not message.tool_calls:
-                answer = message.content or ""
-                self.messages.append({"role": "assistant", "content": answer})
-                yield FinalAnswer(answer)
+            if not turn.tool_calls:
+                yield FinalAnswer(turn.text)
                 return
 
-            # The model wants tools. First record its request in the history...
-            self.messages.append({
-                "role": "assistant",
-                "content": message.content,
-                "tool_calls": [
-                    {
-                        "id": call.id,
-                        "type": "function",
-                        "function": {
-                            "name": call.function.name,
-                            "arguments": call.function.arguments,
-                        },
-                    }
-                    for call in message.tool_calls
-                    if call.type == "function"
-                ],
-            })
-
-            # ...then run each tool and send back one "tool" message per call.
-            for call in message.tool_calls:
-                if call.type != "function":  # we only define function tools
-                    continue
-                result = self.registry.execute(call.function.name, call.function.arguments)
-                self.messages.append({
-                    "role": "tool",
-                    "tool_call_id": call.id,
-                    "content": result,
-                })
-                # yield ToolStep(call.function.name, call.function.arguments, result)
+            # The model wants tools: run each one, then send all the results back.
+            results = []
+            for call in turn.tool_calls:
+                result = self.registry.execute(call.name, call.arguments)
+                results.append(ToolResult(call.id, result))
+                # yield ToolStep(call.name, call.arguments, result)
+            self.session.add_tool_results(results)
             # Loop: the model now reads the tool results and decides what to do next.
 
         yield FinalAnswer("Sorry, I couldn't finish looking that up. Try a more specific question.")
 
     def reset(self) -> None:
-        """Forget the conversation (keeps the system prompt)."""
-        del self.messages[1:]
+        """Start a fresh conversation (keeps the system prompt and tools)."""
+        self.session = self.llm.new_session(SYSTEM_PROMPT, self.registry.tools)
 
     def _log(self, name: str, arguments: str) -> None:
         if self.verbose:
