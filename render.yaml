@@ -10,6 +10,10 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.16" # matches the local version (uv run python --version)
+      # Which LLM runs Rin: "openai" or "anthropic". To switch to Anthropic, set this to
+      # "anthropic" and add ANTHROPIC_API_KEY (+ optionally ANTHROPIC_MODEL) in the dashboard.
+      - key: LLM_PROVIDER
+        value: openai
       - key: OPENAI_MODEL
         value: gpt-5.4-mini
       # Secrets: "sync: false" means Render asks you to type the value in the dashboard.

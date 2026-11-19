@@ -1,8 +1,7 @@
 """The agent's toolbox: hands tool definitions to the LLM and runs the calls it makes."""
 
 import json
-
-from openai.types.chat import ChatCompletionToolUnionParam
+import os
 
 from agentic_pokedex import db
 from agentic_pokedex.pokeapi import PokeAPIClient, PokeAPINotFound
@@ -10,12 +9,14 @@ from agentic_pokedex.tools.ability import AbilityTool
 from agentic_pokedex.tools.base import BaseTool
 from agentic_pokedex.tools.general import PokeAPILookupTool
 from agentic_pokedex.tools.log_event import LogEventTool
+from agentic_pokedex.tools.search_notes import SearchNotesTool
 from agentic_pokedex.tools.species import PokemonSpeciesTool
 
 
 class ToolRegistry:
-    def __init__(self, tools: list[BaseTool]):
+    def __init__(self, tools: list[BaseTool], notices: list[str] | None = None):
         self._tools = {tool.name: tool for tool in tools}
+        self.notices = notices or []  # which optional features are on/off, for startup logs
 
     @classmethod
     def default(cls, client: PokeAPIClient | None = None) -> "ToolRegistry":
@@ -26,14 +27,26 @@ class ToolRegistry:
             AbilityTool(client),
             PokeAPILookupTool(client),
         ]
-        # The journal needs Supabase. Without its settings the app still runs, minus logging.
+        notices: list[str] = []
+        # Optional features need Supabase (and the notes need OpenAI for embeddings).
+        # Without their settings the app still runs, minus that feature - and says so.
         if db.is_configured():
             tools.append(LogEventTool())
-        return cls(tools)
+            notices.append("Journal logging: ON")
+        else:
+            notices.append("Journal logging: OFF (set SUPABASE_URL and SUPABASE_SERVICE_KEY)")
+        if db.is_configured() and os.getenv("OPENAI_API_KEY"):
+            tools.append(SearchNotesTool())
+            notices.append("Knowledge notes search: ON")
+        else:
+            notices.append("Knowledge notes search: OFF (needs Supabase settings and "
+                           "OPENAI_API_KEY for embeddings)")
+        return cls(tools, notices)
 
-    def openai_schemas(self) -> list[ChatCompletionToolUnionParam]:
-        """All tool definitions, ready for the `tools=` argument of the OpenAI API."""
-        return [tool.to_openai_schema() for tool in self._tools.values()]
+    @property
+    def tools(self) -> list[BaseTool]:
+        """All tools. Each LLM provider converts them into its own API format."""
+        return list(self._tools.values())
 
     def execute(self, name: str, arguments_json: str) -> str:
         """Run a tool call from the LLM and return the result as a JSON string.

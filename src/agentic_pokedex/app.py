@@ -10,12 +10,12 @@ from pathlib import Path
 from typing import Any
 
 import gradio as gr
-import openai
-from openai.types.chat import ChatCompletionMessageParam
 
 from agentic_pokedex.agent import FinalAnswer, PokedexAgent, ToolStep, format_call
 from agentic_pokedex.config import Settings
+from agentic_pokedex.llm import LLMError, create_llm
 from agentic_pokedex.pokeapi import PokeAPIClient
+from agentic_pokedex.rag import NotesIndex
 from agentic_pokedex.tools import ToolRegistry
 
 MAX_RESULT_PREVIEW = 1500  # characters of tool output shown in the UI
@@ -40,22 +40,19 @@ def _text(content: Any) -> str:
     return ""
 
 
-def _to_openai_history(history: list[dict]) -> list[ChatCompletionMessageParam]:
-    """Convert the chat shown in the browser back into OpenAI messages.
+def _to_history(history: list[dict]) -> list[tuple[str, str]]:
+    """Convert the chat shown in the browser into (role, text) turns for the agent.
 
     Only the user questions and final answers are kept. The tool-call boxes are skipped
     (they have a metadata title); the agent can simply look things up again if needed.
     """
-    messages: list[ChatCompletionMessageParam] = []
+    turns: list[tuple[str, str]] = []
     for message in history:
         if (message.get("metadata") or {}).get("title"):
             continue
-        text = _text(message.get("content"))
-        if message.get("role") == "user":
-            messages.append({"role": "user", "content": text})
-        elif message.get("role") == "assistant":
-            messages.append({"role": "assistant", "content": text})
-    return messages
+        if message.get("role") in ("user", "assistant"):
+            turns.append((message["role"], _text(message.get("content"))))
+    return turns
 
 
 def _tool_box(step: ToolStep) -> gr.ChatMessage:
@@ -73,18 +70,30 @@ def _tool_box(step: ToolStep) -> gr.ChatMessage:
     )
 
 
+def _print_startup_status(settings: Settings, registry: ToolRegistry) -> None:
+    """Show in the logs (e.g. Render's Logs tab) which model and features are active."""
+    print(f"Model: {settings.llm_provider} / {settings.llm_model}")
+    for notice in registry.notices:
+        print(notice)
+    if "search_notes" in {tool.name for tool in registry.tools}:
+        for line in NotesIndex.sync_on_startup():  # re-index notes that changed in the bucket
+            print(line)
+
+
 def build_demo() -> gr.Blocks:
     settings = Settings.from_env()
     registry = ToolRegistry.default(PokeAPIClient(settings.pokeapi_base_url))
+    llm = create_llm(settings)  # OpenAI or Anthropic, chosen by LLM_PROVIDER
+    _print_startup_status(settings, registry)
 
     def respond(message: str, history: list[dict]) -> Iterator[list[gr.ChatMessage]]:
         # A fresh agent per question, seeded with the conversation from the browser.
         # This keeps each browser tab's conversation separate.
         agent = PokedexAgent(
-            model=settings.openai_model,
+            llm=llm,
             registry=registry,
             verbose=False,
-            history=_to_openai_history(history),
+            history=_to_history(history),
         )
         shown: list[gr.ChatMessage] = [
             gr.ChatMessage(role="assistant", content="",
@@ -100,8 +109,8 @@ def build_demo() -> gr.Blocks:
                 elif isinstance(event, FinalAnswer):
                     shown[-1] = gr.ChatMessage(role="assistant", content=event.text)
                     yield shown
-        except openai.APIError as exc:
-            shown[-1] = gr.ChatMessage(role="assistant", content=f"⚠️ OpenAI error: {exc}")
+        except LLMError as exc:
+            shown[-1] = gr.ChatMessage(role="assistant", content=f"⚠️ Model error: {exc}")
             yield shown
 
     # gr.Blocks lets us put our own styled header above the chat.
@@ -114,7 +123,7 @@ def build_demo() -> gr.Blocks:
                 <h1>Rin</h1>
                 <p>Your Pokédex assistant. Ask about any Pokémon, or tell Rin about your
                    adventure to keep a journal. Answers are looked up live from PokéAPI
-                   (model: {settings.openai_model}). Expand the 🔍 boxes to see each lookup.</p>
+                   (model: {settings.llm_model}). Expand the 🔍 boxes to see each lookup.</p>
               </div>
             </div>
             """
@@ -134,7 +143,7 @@ def main() -> None:
     server_name = "0.0.0.0" if on_server else "127.0.0.1"
     server_port = int(os.environ.get("PORT", 7860))
 
-    # Optional login, so strangers can't spend your OpenAI credits on a public URL.
+    # Optional login, so strangers can't spend your LLM credits on a public URL.
     # Turned on by setting APP_USERNAME and APP_PASSWORD (e.g. in Render's dashboard).
     username, password = os.environ.get("APP_USERNAME"), os.environ.get("APP_PASSWORD")
     auth = (username, password) if username and password else None
