@@ -16,7 +16,7 @@ def main() -> None:
     registry = ToolRegistry.default(PokeAPIClient(settings.pokeapi_base_url))
     agent = PokedexAgent(model=settings.openai_model, registry=registry)
 
-    print(f"Agentic Pokédex ({settings.openai_model}). Ask anything about Pokémon.")
+    print(f"Rin, your Pokédex assistant ({settings.openai_model}). Ask anything about Pokémon.")
     print("Commands: 'reset' to start a new conversation, 'quit' to exit.\n")
 
     while True:
@@ -38,6 +38,6 @@ def main() -> None:
         except openai.APIError as exc:
             print(f"(OpenAI error: {exc})\n")
             continue
-        print(f"Pokédex: {answer}\n")
+        print(f"Rin: {answer}\n")
 
     print("Goodbye!")
