@@ -105,14 +105,15 @@ def build_demo() -> gr.Blocks:
             yield shown
 
     # gr.Blocks lets us put our own styled header above the chat.
-    with gr.Blocks(title="Agentic Pokédex", fill_height=True) as demo:
+    with gr.Blocks(title="Rin · Pokédex Assistant", fill_height=True) as demo:
         gr.HTML(
             f"""
             <div id="pokedex-header">
               <span class="pokeball"></span>
               <div>
-                <h1>Agentic Pokédex</h1>
-                <p>Ask anything about Pokémon. Answers are looked up live from PokéAPI
+                <h1>Rin</h1>
+                <p>Your Pokédex assistant. Ask about any Pokémon, or tell Rin about your
+                   adventure to keep a journal. Answers are looked up live from PokéAPI
                    (model: {settings.openai_model}). Expand the 🔍 boxes to see each lookup.</p>
               </div>
             </div>
