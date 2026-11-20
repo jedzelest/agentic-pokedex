@@ -18,6 +18,9 @@ class BaseTool(ABC):
 
     name: str
     description: str
+    # If set, this tool is refused when that other tool already ran in the same reply.
+    # Used so a change can't be proposed and saved without the trainer answering in between.
+    not_in_same_reply_as: str | None = None
 
     @property
     @abstractmethod

@@ -71,13 +71,16 @@ def _tool_box(step: ToolStep) -> gr.ChatMessage:
 
 
 def _print_startup_status(settings: Settings, registry: ToolRegistry) -> None:
-    """Show in the logs (e.g. Render's Logs tab) which model and features are active."""
-    print(f"Model: {settings.llm_provider} / {settings.llm_model}")
+    """Show in the logs (e.g. Render's Logs tab) which model and features are active.
+
+    flush=True: on servers Python may hold printed text in a buffer; this writes it out now.
+    """
+    print(f"Model: {settings.llm_provider} / {settings.llm_model}", flush=True)
     for notice in registry.notices:
-        print(notice)
-    if "search_notes" in {tool.name for tool in registry.tools}:
+        print(notice, flush=True)
+    if registry.get("search_notes"):
         for line in NotesIndex.sync_on_startup():  # re-index notes that changed in the bucket
-            print(line)
+            print(line, flush=True)
 
 
 def build_demo() -> gr.Blocks:

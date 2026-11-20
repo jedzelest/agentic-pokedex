@@ -17,7 +17,7 @@ def main() -> None:
 
     for notice in registry.notices:
         print(notice)
-    if "search_notes" in {tool.name for tool in registry.tools}:
+    if registry.get("search_notes"):
         from agentic_pokedex.rag import NotesIndex
         for line in NotesIndex.sync_on_startup():
             print(line)
