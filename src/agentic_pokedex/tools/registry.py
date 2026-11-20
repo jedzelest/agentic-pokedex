@@ -9,6 +9,7 @@ from agentic_pokedex.tools.ability import AbilityTool
 from agentic_pokedex.tools.base import BaseTool
 from agentic_pokedex.tools.general import PokeAPILookupTool
 from agentic_pokedex.tools.log_event import LogEventTool
+from agentic_pokedex.tools.note_edits import ApplyNoteEditTool, ProposeNoteEditTool
 from agentic_pokedex.tools.search_notes import SearchNotesTool
 from agentic_pokedex.tools.species import PokemonSpeciesTool
 
@@ -36,12 +37,18 @@ class ToolRegistry:
         else:
             notices.append("Journal logging: OFF (set SUPABASE_URL and SUPABASE_SERVICE_KEY)")
         if db.is_configured() and os.getenv("OPENAI_API_KEY"):
-            tools.append(SearchNotesTool())
-            notices.append("Knowledge notes search: ON")
+            from agentic_pokedex.rag import NotesEditor, NotesIndex
+            index = NotesIndex()  # shared: one connection, and one draft store for edits
+            editor = NotesEditor(index)
+            tools += [SearchNotesTool(index), ProposeNoteEditTool(editor), ApplyNoteEditTool(editor)]
+            notices.append("Knowledge notes search + editing: ON")
         else:
-            notices.append("Knowledge notes search: OFF (needs Supabase settings and "
+            notices.append("Knowledge notes search + editing: OFF (needs Supabase settings and "
                            "OPENAI_API_KEY for embeddings)")
         return cls(tools, notices)
+
+    def get(self, name: str) -> BaseTool | None:
+        return self._tools.get(name)
 
     @property
     def tools(self) -> list[BaseTool]:

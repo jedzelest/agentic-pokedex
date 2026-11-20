@@ -6,6 +6,9 @@ in the bucket changes, its fingerprint changes too, so we know it needs re-index
 
 import hashlib
 from dataclasses import dataclass
+from typing import Any, cast
+
+from postgrest.types import CountMethod
 
 from agentic_pokedex.config import RagSettings
 from agentic_pokedex.db import get_db
@@ -40,9 +43,12 @@ class NotesIndex:
 
     def indexed_fingerprint(self, source: str) -> str | None:
         """The fingerprint stored with this file's chunks, or None if it isn't indexed."""
-        rows = (self.db.table(TABLE).select("metadata").eq("source", source)
-                .limit(1).execute().data)
-        return (rows[0].get("metadata") or {}).get("sha256") if rows else None
+        # Supabase types query results loosely (any JSON), so we tell the type checker the shape.
+        rows = cast(list[dict[str, Any]], self.db.table(TABLE).select("metadata")
+                    .eq("source", source).limit(1).execute().data)
+        metadata = (rows[0].get("metadata") or {}) if rows else {}
+        sha = metadata.get("sha256")
+        return sha if isinstance(sha, str) else None
 
     # ---- Indexing ----------------------------------------------------------------
 
@@ -51,7 +57,7 @@ class NotesIndex:
         text = self.download(source)
         sha = self.fingerprint(text)
         if not force and self.indexed_fingerprint(source) == sha:
-            count = (self.db.table(TABLE).select("id", count="exact", head=True)
+            count = (self.db.table(TABLE).select("id", count=CountMethod.exact, head=True)
                      .eq("source", source).execute().count)
             return IndexReport(source, "up to date", count or 0)
 
@@ -86,9 +92,10 @@ class NotesIndex:
 
     # ---- Search ------------------------------------------------------------------
 
-    def search(self, query: str, top_k: int = 4) -> list[dict]:
+    def search(self, query: str, top_k: int = 4) -> list[dict[str, Any]]:
         """The chunks closest in meaning to the query (via the match_chunks SQL function)."""
         vector = self.embedder.embed_one(query)
-        return self.db.rpc(
+        data = self.db.rpc(
             "match_chunks", {"query_embedding": vector, "match_count": top_k}
         ).execute().data
+        return cast(list[dict[str, Any]], data or [])
