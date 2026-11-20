@@ -1,7 +1,7 @@
 [project]
 name = "agentic-pokedex"
 version = "0.1.0"
-description = "Add your description here"
+description = "Rin, an agentic Pokédex for Pokémon and PokeMMO"
 readme = "README.md"
 authors = [
     { name = "jedzelest", email = "jedzelestrelloso@gmail.com" }
